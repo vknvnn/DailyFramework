@@ -1,0 +1,65 @@
+﻿--SELECT 1 FROM pg_database WHERE datname='dftest';
+--SELECT * FROM pg_timezone_names where utc_offset='07:00:00' OR utc_offset='00:00:00';
+
+--ALTER DATABASE dftest SET timezone TO 'Asia/Ho_Chi_Minh';
+--ALTER DATABASE dftest SET timezone TO 'GMT0';
+drop database dftest;
+create database dftest;
+drop table public."Tenant";
+create table public."Tenant"
+(
+	"Id" bigserial NOT NULL,
+	"IsActive" bool not null,
+	"TenantId" uuid not null,	
+    "CreatedDate" timestamptz NOT NULL,    
+    "CreatedBy" character varying(20) NOT NULL,
+	"Version" int not null,
+    "ModifiedBy" character varying(20) NULL,
+	"ModifiedDate" timestamptz NULL,
+    "IsDeleted" bool not null,
+    "DeletedBy" character varying(20) NULL,
+	"DeletedDate" timestamptz NULL,
+    CONSTRAINT student_pkey PRIMARY KEY ("Id")
+);
+ALTER TABLE public."Tenant"
+    OWNER to postgres;
+
+GRANT ALL ON TABLE public."Tenant" TO postgres;
+
+-- Index: tenant_id
+CREATE INDEX tenant_id
+    ON public."Tenant" USING btree
+    ("TenantId")
+    TABLESPACE pg_default;
+CREATE INDEX created_by
+    ON public."Tenant" USING btree
+    ("CreatedBy" COLLATE pg_catalog."default" varchar_ops)
+    TABLESPACE pg_default;
+CREATE INDEX created_date
+    ON public."Tenant" USING btree
+    ("CreatedDate" ASC NULLS LAST)
+    TABLESPACE pg_default;
+CREATE INDEX "version"
+    ON public."Tenant" USING btree
+    ("Version")
+    TABLESPACE pg_default;
+CREATE INDEX modified_by
+    ON public."Tenant" USING btree
+    ("ModifiedBy" COLLATE pg_catalog."default" varchar_ops)
+    TABLESPACE pg_default;
+CREATE INDEX modified_date
+    ON public."Tenant" USING btree
+    ("ModifiedDate" ASC NULLS LAST)
+	TABLESPACE pg_default;
+CREATE INDEX deleted_by
+    ON public."Tenant" USING btree
+    ("DeletedBy" COLLATE pg_catalog."default" varchar_ops)
+    TABLESPACE pg_default;
+CREATE INDEX deleted_date
+    ON public."Tenant" USING btree
+    ("DeletedDate" ASC NULLS LAST)
+	TABLESPACE pg_default;
+CREATE INDEX is_deleted
+    ON public."Tenant" USING btree
+    ("IsDeleted")
+    TABLESPACE pg_default;
