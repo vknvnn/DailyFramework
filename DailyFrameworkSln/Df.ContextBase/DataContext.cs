@@ -12,12 +12,12 @@ namespace Df.ContextBase
     public partial class DataContext : DbContext
     {
         private readonly ITenantFactory _tenantFactory;
-        private List<DtoEntityAudit> _auditList;
+        public List<DtoEntityAudit> AuditList { get; }
         public DelegateHandleChangeTracker HandleChangeTracker { get; set; }
         public DataContext(ITenantFactory tenantFactory)
         {
             _tenantFactory = tenantFactory;
-            _auditList = new List<DtoEntityAudit>();
+            AuditList = new List<DtoEntityAudit>();
         }
 
         /// <summary>
@@ -70,7 +70,7 @@ namespace Df.ContextBase
         {
             HandleTracking();
             AuditHandle();
-            HandleChangeTracker?.Invoke(_auditList);
+            HandleChangeTracker?.Invoke(AuditList);
             return base.SaveChanges();
         }
 
@@ -78,7 +78,7 @@ namespace Df.ContextBase
         {
             HandleTracking();
             AuditHandle();
-            HandleChangeTracker?.Invoke(_auditList);
+            HandleChangeTracker?.Invoke(AuditList);
             return base.SaveChangesAsync(cancellationToken);
         }
     }

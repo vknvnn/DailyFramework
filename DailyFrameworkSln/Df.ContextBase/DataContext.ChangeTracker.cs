@@ -9,7 +9,6 @@ namespace Df.ContextBase
 {
     public partial class DataContext
     {
-        
         private void AuditHandle()
         {
             var modifiedEntities = ChangeTracker.Entries<EntityTenant>()
@@ -33,7 +32,7 @@ namespace Df.ContextBase
                         });
                     }
                 }
-                _auditList.Add(audit);
+                AuditList.Add(audit);
             }
         }
 

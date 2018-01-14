@@ -2,9 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
+using Df.JsonConfiguration;
 using Df.PostgreSqlUnitTest.PostgreSqlProvider;
 using Df.PostgreSqlUnitTest.PostgreSqlProvider.Entities;
 using Df.TenantBase;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Df.PostgreSqlUnitTest
@@ -12,21 +16,27 @@ namespace Df.PostgreSqlUnitTest
     [TestClass]
     public class PostgreSqlProviderTest
     {
-        private readonly ITenantFactory _tenantFactory;
         private readonly Guid _tenant = new Guid("e66ae92f-7d05-4c61-baaf-2c49397c0a51");
         private readonly int _clientName = 420;
         private readonly string _userName = "nghiep.vo";
+        private IServiceProvider _serviceProvider;
         public PostgreSqlProviderTest()
         {
-            _tenantFactory = new TenantFactory(null, _tenant, _clientName, _userName);
+            var serviceCollection = new ServiceCollection();
+            serviceCollection.AddDbContext<DfTestContext>();
+            serviceCollection.AddSingleton<IJsonConfig, JsonConfig>();
+            serviceCollection.AddTransient<ITenantFactory>(s=> new TenantFactory(null, _tenant, _clientName, _userName));
+            _serviceProvider = serviceCollection.BuildServiceProvider();
         }
         
         [TestMethod]
         public void InsertOrUpdate()
         {
             long idResutl = 0;
-            using (var db = new DfTestContext(_tenantFactory))
+            var serviceScopeFactory = _serviceProvider.GetRequiredService<IServiceScopeFactory>();
+            using (var scope = serviceScopeFactory.CreateScope())
             {
+                var db = scope.ServiceProvider.GetService<DfTestContext>();
                 var objTenant = db.Tenants.FirstOrDefault(o => o.Id == 1);
                 if (objTenant != null)
                 {
@@ -39,9 +49,10 @@ namespace Df.PostgreSqlUnitTest
                         IsActive = false,
                     };
                     db.Tenants.Add(objTenant);
+                    
                 }
-                db.SaveChanges();
-                
+                var result = db.SaveChangesAsync();
+                result.Wait();
                 idResutl = objTenant.Id;
             }
             Assert.AreEqual(idResutl, 1);
@@ -51,31 +62,35 @@ namespace Df.PostgreSqlUnitTest
         public void AuditChange()
         {
             long idResutl = 0;
-            using (var db = new DfTestContext(_tenantFactory))
+            var serviceScopeFactory = _serviceProvider.GetRequiredService<IServiceScopeFactory>();
+            using (var scope = serviceScopeFactory.CreateScope())
             {
+                var db = scope.ServiceProvider.GetService<DfTestContext>();
                 var objTenant = db.Tenants.FirstOrDefault(o => o.Id == 1);
                 if (objTenant != null)
                 {
                     objTenant.IsActive = !objTenant.IsActive;
                 }
-
-                db.SaveChanges();
+                var result = db.SaveChangesAsync();
+                result.Wait();
                 idResutl = db.AuditList.Count;
             }
+
             Assert.AreEqual(idResutl, 1);
         }
         [TestMethod]
         public void CheckTimeZone()
         {
+            
             long idResutl = 0;
-            using (var db = new DfTestContext(_tenantFactory))
+            var serviceScopeFactory = _serviceProvider.GetRequiredService<IServiceScopeFactory>();
+            using (var scope = serviceScopeFactory.CreateScope())
             {
-                var objTenant = db.Tenants.FirstOrDefault(o => o.ModifiedDate > DateTimeOffset.UtcNow.AddSeconds(-30));
-                if (objTenant != null)
-                {
-                    idResutl = objTenant.Id;
-                }
-                
+                var db = scope.ServiceProvider.GetService<DfTestContext>();
+
+                var result = db.Tenants.FirstOrDefaultAsync(o => o.ModifiedDate  > DateTimeOffset.UtcNow.AddSeconds(-30));
+                result.Wait();
+                idResutl = result.Result.Id;
             }
             Assert.AreEqual(idResutl, 1);
         }

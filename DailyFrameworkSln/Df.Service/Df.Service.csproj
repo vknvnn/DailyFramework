@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Df.ContextBase\Df.ContextBase.csproj" />
+    <ProjectReference Include="..\Df.JsonConfiguration\Df.JsonConfiguration.csproj" />
+    <ProjectReference Include="..\Df.Repository\Df.Repository.csproj" />
+    <ProjectReference Include="..\Df.TenantBase\Df.TenantBase.csproj" />
+  </ItemGroup>
+
+</Project>
