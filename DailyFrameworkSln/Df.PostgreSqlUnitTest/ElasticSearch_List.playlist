@@ -1,0 +1,4 @@
+<Playlist Version="1.0">
+  <Add Test="Df.PostgreSqlUnitTest.ElasticSearchTest.ElasticSearch_CheckConnection" />
+  <Add Test="Df.PostgreSqlUnitTest.ElasticSearchTest.ElasticSearch_QueryStartSwith" />
+</Playlist>
