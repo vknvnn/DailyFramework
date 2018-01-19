@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using Elasticsearch.Net;
+using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Nest;
@@ -169,6 +170,50 @@ namespace Df.PostgreSqlUnitTest
                     );
             var dataResult = query.GetDataResult<PersonDataResultEs, Person>();
             Assert.AreEqual(dataResult.Count, 2);
+        }
+
+        [TestMethod]
+        public void ElasticSearch_GetRawQuery()
+        {
+            var esNode = new Uri("http://localhost:9200/");
+            var esConfig = new ConnectionSettings(esNode).DefaultIndex("person");
+            var esClient = new ElasticClient(esConfig);
+            SearchRequest<dynamic> searchRequest = new SearchRequest<dynamic>
+            {
+                
+                Query = new RawQuery
+                {
+                    Raw = "{\"bool\":{\"should\":[{\"match_phrase_prefix\":{\"first_name\":{\"query\":\"Võ T\",\"max_expansions\":5}}},{\"match_phrase_prefix\":{\"last_name\":{\"query\":\"Võ T\",\"max_expansions\":5}}}]}}",
+
+                },
+                Sort = new List<ISort>()
+                {
+                    new SortField {Field = "first_name", Order = SortOrder.Ascending},
+                    new SortField {Field = "last_name", Order = SortOrder.Ascending},
+                }
+            };
+            Func<SearchDescriptor<Person>, ISearchRequest> search = s =>
+                        s.Query(qu =>
+                            qu.Bool(b => b.Should(
+                                    should => should.MatchPhrasePrefix(
+                                        mpp => mpp.Field(f => f.FirstName).Query("Võ T").MaxExpansions(5)
+                                    ),
+                                    should => should.MatchPhrasePrefix(
+                                        mpp => mpp.Field(f => f.LastName).Query("Võ T").MaxExpansions(5)
+                                    )
+                                )
+                            )
+                        ).Sort(sort => sort.Field("last_name", SortOrder.Ascending))
+                        .Sort(sort => sort.Field("first_name", SortOrder.Ascending))
+                        
+                        .From(0)
+                        .Take(10)
+                        ;
+            
+            var query = esClient.Search<dynamic>(searchRequest);
+
+            //var dataResult = query.GetDataResult<PersonDataResultEs, Person>();
+            //Assert.AreEqual(dataResult.Count, 2);
         }
     }
 }
