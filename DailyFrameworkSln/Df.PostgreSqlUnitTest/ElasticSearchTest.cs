@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Elasticsearch.Net;
 using Microsoft.Extensions.Configuration;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Nest;
@@ -12,11 +13,11 @@ namespace Df.PostgreSqlUnitTest
     /// <summary>
     /// The Fielddata is true that it's using to search
     /// </summary>
-    [ElasticsearchType(IdProperty = "id", Name ="person")]
+    [ElasticsearchType(IdProperty = "Id", Name ="person")]
     public class Person
     {
-        public long Id { get; set; }
         
+        public long Id { get; set; }
         [Text(Name="first_name", Analyzer = "analyzer_startswith", SearchAnalyzer = "analyzer_startswith", Fielddata = true)]
         public string FirstName { get; set; }
         [Text(Name = "last_name", Analyzer = "analyzer_startswith", SearchAnalyzer = "analyzer_startswith", Fielddata = true)]
@@ -55,33 +56,28 @@ namespace Df.PostgreSqlUnitTest
     [TestClass]
     public class ElasticSearchTest
     {
+        private readonly IElasticClient _esClient;
+        private const string IndexName = "nghiepvo";
+        public ElasticSearchTest()
+        {
+            var esNode = new Uri("http://localhost:9200/");
+            var esConfig = new ConnectionSettings(esNode).DefaultIndex(IndexName);
+            _esClient = new ElasticClient(esConfig);
+        }
         [TestMethod]
         public void ElasticSearch_CheckConnection()
         {
-            var esNode = new Uri("http://localhost:9200/");
-            var esConfig = new ConnectionSettings(esNode).DefaultIndex("person");
-            var esClient = new ElasticClient(esConfig);
-            //var settings = new IndexSettings { NumberOfReplicas = 1, NumberOfShards = 2 };
-
-            //var indexConfig = new IndexState
-            //{
-            //    Settings = settings
-            //};
-            var indexName = new IndexName();
-            indexName.Name = "person";
-            var responseDelete = esClient.DeleteIndex(indexName);
-            if (!esClient.IndexExists("person").Exists)
+            
+            var responseDelete = _esClient.DeleteIndex(IndexName);
+            if (!_esClient.IndexExists(IndexName).Exists)
             {
                 // Create a customize Startswith
-                Func<CreateIndexDescriptor, ICreateIndexRequest> config = r => r.Settings(s => s
-                            .Analysis(al => al.Analyzers(a => a.Custom("analyzer_startswith", c => c.Tokenizer("keyword").Filters("lowercase")))))
-                            .Mappings(m => m.Map<Person>(t => t.AutoMap()));
+                ICreateIndexRequest Config(CreateIndexDescriptor r) => r.Settings(s => s.NumberOfShards(1)
+                        .NumberOfReplicas(5)
+                        .Analysis(al => al.Analyzers(a => a.Custom("analyzer_startswith", c => c.Tokenizer("keyword").Filters("lowercase")))))
+                    .Mappings(m => m.Map<Person>(t => t.AutoMap()));
 
-
-                var responseCreate = esClient.CreateIndex(indexName, config);
-
-
-
+                var responseCreate = _esClient.CreateIndex(IndexName, Config);
                 //esClient.Map<Person>(m =>
                 //{
                 //    var putMappingDescriptor = m.Index(Indices.Index("person")).AutoMap();
@@ -95,7 +91,7 @@ namespace Df.PostgreSqlUnitTest
                 FirstName = "Võ Kế",
                 LastName = "Nghiệp"
             };
-            var repInsertDoc = esClient.Index(person);
+            var repInsertDoc = _esClient.Index(person, s => s.Index<Person>());
 
             person = new Person
             {
@@ -103,7 +99,7 @@ namespace Df.PostgreSqlUnitTest
                 FirstName = "Võ Trọng",
                 LastName = "Nghĩa"
             };
-            repInsertDoc = esClient.Index(person);
+            repInsertDoc = _esClient.Index(person, s => s.Index<Person>());
 
             person = new Person
             {
@@ -111,7 +107,7 @@ namespace Df.PostgreSqlUnitTest
                 FirstName = "Võ Trắc",
                 LastName = "Nghị"
             };
-            repInsertDoc = esClient.Index(person);
+            repInsertDoc = _esClient.Index(person, s => s.Index<Person>());
 
             person = new Person
             {
@@ -119,28 +115,51 @@ namespace Df.PostgreSqlUnitTest
                 FirstName = "Võ Nguyên",
                 LastName = "Khang"
             };
-            repInsertDoc = esClient.Index(person);
+            repInsertDoc = _esClient.Index(person, s => s.Index<Person>());
+
+            person = new Person
+            {
+                Id = 5,
+                FirstName = "Delete",
+                LastName = "Delete"
+            };
+            repInsertDoc = _esClient.Index(person, s => s.Index<Person>());
+            var repDeleteDoc =  _esClient.Delete<Person>(5);
+            person = new Person
+            {
+                Id = 6,
+                FirstName = "Update",
+                LastName = "Update"
+            };
+            repInsertDoc = _esClient.Index(person, s => s.Index<Person>());
+            person = new Person
+            {
+                Id = 6,
+                FirstName = "Update 1",
+                LastName = "Update 1"
+            };
+            repInsertDoc = _esClient.Index(person, s => s.Index<Person>());
+            var repGetDoc = _esClient.Get<Person>(6);
+
             //esClient.DeleteIndex("people");
-            Assert.AreEqual(repInsertDoc.Id, person.Id.ToString());
-
-
+            //Assert.AreEqual(repInsertDoc.Result, Result.Updated);
+            var repUpdateDoc = _esClient.Update<Person, Person>(new Person { Id = 6, FirstName = "Update 1"},
+                p => p.Doc(new Person { FirstName = "Update 2"}));
+            Assert.AreEqual(repUpdateDoc.Version, 3);
         }
 
         [TestMethod]
         public void ElasticSearch_QueryStartSwith()
         {
-            var esNode = new Uri("http://localhost:9200/");
-            var esConfig = new ConnectionSettings(esNode).DefaultIndex("person");
-            var esClient = new ElasticClient(esConfig);
-            var query = esClient.Search<Person>(search =>
+            var query = _esClient.Search<Person>(search =>
                         search.Query(qu =>
                             qu.Bool(b => b.Should(
                                     should => should.MatchPhrasePrefix(
                                         mpp => mpp.Field(f=>f.FirstName).Query("Võ T").MaxExpansions(5)
-                                    ),
-                                    should => should.MatchPhrasePrefix(
-                                        mpp => mpp.Field(f => f.LastName).Query("Võ T").MaxExpansions(5)
                                     )
+                                    , should => should.MatchPhrasePrefix(
+                                         mpp => mpp.Field(f => f.LastName).Query("Võ T").MaxExpansions(5)
+                                     )
                                 )                                
                             )
                         ).Sort(sort => sort.Field("last_name", SortOrder.Ascending))
